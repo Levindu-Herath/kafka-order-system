@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "Order",
+  "namespace": "com.bigdata.orders",
+  "fields": [
+    { "name": "order_id", "type": "string" },
+    { "name": "customer_id", "type": "string" },
+    { "name": "product_id", "type": "string" },
+    { "name": "quantity", "type": "int" },
+    { "name": "unit_price", "type": "double" },
+    { "name": "status", "type": { "type": "enum", "name": "OrderStatus", "symbols": ["PLACED", "PAID", "SHIPPED", "DELIVERED", "CANCELLED"] } },
+    { "name": "created_at", "type": "long", "logicalType": "timestamp-millis" }
+  ]
+}
