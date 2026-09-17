@@ -1,3 +1,1 @@
-kafka-python==2.0.2
-fastavro==1.9.4
-faker==25.2.0
+confluent-kafka[avro,schemaregistry]>=2.6.0
