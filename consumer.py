@@ -1,17 +1,24 @@
 """
-consumer.py  (Step 5 - running average)
----------------------------------------
-Reads orders from 'orders', deserializes from Avro, and maintains a
-real-time running average of prices (overall, and per product).
+consumer.py  (Step 6 - retry logic)
+-----------------------------------
+Reads orders, keeps a running average, and now handles TEMPORARY failures
+by retrying up to MAX_RETRIES times with exponential backoff.
 
-New in this step: the aggregation state (total_sum, count, per-product stats)
-and the update_average() function.
+To demonstrate retries, we simulate a transient failure on ~20% of messages
+(FAILURE_RATE). Most recover within a retry or two.
 
-Still to come: retry logic (Step 6) and Dead Letter Queue (Step 7).
+The simulated failure happens BEFORE aggregation, so a message that
+fails-then-succeeds is only counted once in the average.
+
+Still to come: Dead Letter Queue (Step 7) for messages that fail permanently
+or exhaust all retries.
+
 Run in a second terminal while producer.py runs. Stop with Ctrl+C.
 """
 
 import os
+import time
+import random
 
 from confluent_kafka import Consumer
 from confluent_kafka.serialization import SerializationContext, MessageField
@@ -24,10 +31,19 @@ SCHEMA_REGISTRY_URL = "http://localhost:8081"
 TOPIC = "orders"
 GROUP_ID = "order-consumer-group"
 
-# --- Aggregation state (lives in memory for the life of the consumer) ---
-total_sum = 0.0          # sum of all prices seen
-count = 0                # how many orders processed
-product_stats = {}       # product -> {"sum": float, "count": int}
+# --- Retry settings ---
+MAX_RETRIES = 3          # how many times to try processing a message
+FAILURE_RATE = 0.2       # simulate a transient failure 20% of the time
+
+# --- Aggregation state ---
+total_sum = 0.0
+count = 0
+product_stats = {}
+
+
+class TransientError(Exception):
+    """A temporary, retryable failure (e.g. a brief network/db hiccup)."""
+    pass
 
 
 def load_schema() -> str:
@@ -41,28 +57,56 @@ def dict_to_order(obj: dict, ctx) -> dict:
 
 
 def update_average(order: dict):
-    """Update the overall and per-product running averages, then print them."""
+    """Update overall and per-product running averages, then print them."""
     global total_sum, count
 
     price = order["price"]
     product = order["product"]
 
-    # --- overall running average ---
     total_sum += price
     count += 1
     overall_avg = total_sum / count
 
-    # --- per-product running average ---
     stats = product_stats.setdefault(product, {"sum": 0.0, "count": 0})
     stats["sum"] += price
     stats["count"] += 1
     product_avg = stats["sum"] / stats["count"]
 
     print(f"Order {order['orderId']}: {product} @ ${price:.2f}")
-    print(f"   Running avg (overall): ${overall_avg:.2f}  "
-          f"over {count} orders")
+    print(f"   Running avg (overall): ${overall_avg:.2f}  over {count} orders")
     print(f"   Running avg ({product}): ${product_avg:.2f}  "
           f"over {stats['count']} orders")
+
+
+def process_order(order: dict):
+    """Process a single order. May raise TransientError (simulated) to
+    demonstrate retry behaviour. Aggregation only runs if we get past the
+    simulated failure."""
+    if random.random() < FAILURE_RATE:
+        raise TransientError("simulated temporary failure")
+
+    update_average(order)
+
+
+def process_with_retry(order: dict):
+    """Try to process an order, retrying transient failures with backoff.
+    Returns True on success, False if all retries were exhausted."""
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            process_order(order)
+            if attempt > 1:
+                print(f"   ✔ recovered on attempt {attempt}")
+            return True
+        except TransientError as e:
+            wait = 0.5 * (2 ** (attempt - 1))  # 0.5s, 1s, 2s
+            if attempt < MAX_RETRIES:
+                print(f"   ⟳ order {order['orderId']} attempt {attempt} "
+                      f"failed ({e}); retrying in {wait:.1f}s...")
+                time.sleep(wait)
+            else:
+                print(f"   ✖ order {order['orderId']} failed after "
+                      f"{MAX_RETRIES} attempts - giving up (DLQ comes next)")
+    return False
 
 
 def main():
@@ -100,7 +144,7 @@ def main():
             if order is None:
                 continue
 
-            update_average(order)
+            process_with_retry(order)
 
     except KeyboardInterrupt:
         print("\nStopping consumer...")
