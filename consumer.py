@@ -1,6 +1,4 @@
 """
-consumer.py  (Step 7 - Dead Letter Queue) - FINAL
--------------------------------------------------
 Full consumer:
   - deserializes Avro orders
   - maintains a real-time running average (overall + per product)
@@ -10,7 +8,6 @@ Full consumer:
         * retries exhausted          -> to DLQ
   - NEVER crashes: a bad message is quarantined and the consumer keeps going.
 
-Run in a second terminal while producer.py runs. Stop with Ctrl+C.
 """
 
 import os
@@ -43,7 +40,7 @@ total_sum = 0.0
 count = 0
 product_stats = {}
 
-# DLQ producer (writes bad messages as plain JSON so they're easy to read)
+# DLQ producer 
 dlq_producer = Producer({"bootstrap.servers": BOOTSTRAP_SERVERS})
 string_serializer = StringSerializer("utf_8")
 
@@ -138,7 +135,7 @@ def handle_message(order: dict):
                 print(f"   ✔ recovered on attempt {attempt}")
             return
         except TransientError as e:
-            wait = 0.5 * (2 ** (attempt - 1))  # 0.5s, 1s, 2s
+            wait = 0.5 * (2 ** (attempt - 1)) 
             if attempt < MAX_RETRIES:
                 print(f"   ⟳ order {order['orderId']} attempt {attempt} "
                       f"failed ({e}); retrying in {wait:.1f}s...")

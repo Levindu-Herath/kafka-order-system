@@ -3,10 +3,9 @@ services:
     image: confluentinc/cp-kafka:7.7.1
     container_name: kafka
     ports:
-      # Host apps (your producer.py / consumer.py) connect here
       - "29092:29092"
     environment:
-      # --- KRaft (no Zookeeper) single-node: this node is both broker and controller ---
+      # --- KRaft (no Zookeeper) single-node ---
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: "broker,controller"
       KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
@@ -22,7 +21,7 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
       KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
 
-      # --- Single-node settings (defaults assume a 3-broker cluster, so override them) ---
+      # --- Single-node settings ---
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
@@ -41,7 +40,6 @@ services:
       kafka:
         condition: service_healthy
     ports:
-      # Your Python code talks to Schema Registry here
       - "8081:8081"
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry

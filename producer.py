@@ -1,12 +1,9 @@
 """
-producer.py  (Step 7 - now also sends occasional BAD orders)
-------------------------------------------------------------
 Generates fake order messages, Avro-serializes them, and sends them to
 'orders'. To let you demo the Dead Letter Queue, ~10% of orders are
 deliberately INVALID (negative price) - the consumer will route those
 straight to the DLQ.
 
-Run while Kafka + Schema Registry are up. Stop with Ctrl+C.
 """
 
 import os
@@ -28,8 +25,7 @@ TOPIC = "orders"
 
 PRODUCTS = ["Item1", "Item2", "Item3", "Item4", "Item5"]
 
-# ~10% of orders will be deliberately invalid (negative price) so you can
-# demonstrate the Dead Letter Queue. Set to 0 to send only valid orders.
+# ~10% of orders will be deliberately invalid 
 BAD_ORDER_RATE = 0.1
 
 
